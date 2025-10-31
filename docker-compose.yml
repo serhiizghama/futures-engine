@@ -26,7 +26,7 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9093,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -79,6 +79,25 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  market-data-ingestor:
+    image: node:22-alpine
+    container_name: futures-market-data-ingestor
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app:ro
+    command: ["npm", "run", "start", "--workspace", "apps/market-data-ingestor"]
+    environment:
+      NODE_ENV: production
+      KAFKA_BROKERS: kafka:9093
+      REDIS_URL: redis://redis:6379
+      SYMBOLS: BTCUSDT
+      PRICE_TTL_SECONDS: "60"
+    depends_on:
+      - kafka
+      - redis
+    networks:
+      - futures-network
 
 volumes:
   redis-data:
