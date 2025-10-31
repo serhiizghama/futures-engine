@@ -2,71 +2,90 @@
 set -euo pipefail
 
 # --- Configuration ---
-# The container name we will use
-CONTAINER_NAME="futures-db"
-# Login parameters (also used for creating the container)
+CONTAINER_NAME="futures-postgres"
 POSTGRES_USER="futures"
 POSTGRES_PASSWORD="futures"
-POSTGRES_DB="futures"
+POSTGRES_DB="futures_engine"
 DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}"
+POSTGRES_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/postgres"
 MIGRATION_FILE="$(dirname "$0")/../migrations/0001_init.sql"
 
-# --- 1. Start the container ---
+echo "🔍 Checking PostgreSQL container status..."
 
-# Check if the container is already running
-# We use ^/ for an exact name match
-if ! docker ps -q -f name=^/${CONTAINER_NAME}$ >/dev/null; then
-    # Container is not running. Check if it exists but is stopped
-    if ! docker ps -aq -f name=^/${CONTAINER_NAME}$ >/dev/null; then
-        # Container does not exist. Creating it.
-        echo "🚀 Creating and starting a new container '${CONTAINER_NAME}'..."
-        docker run -d \
-            --name ${CONTAINER_NAME} \
-            -e POSTGRES_USER=${POSTGRES_USER} \
-            -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
-            -e POSTGRES_DB=${POSTGRES_DB} \
-            -p 5432:5432 \
-            -v ${CONTAINER_NAME}_data:/var/lib/postgresql/data \
-            --restart always \
-            postgres
-    else
-        # Container exists but is stopped. Starting it.
-        echo "Container '${CONTAINER_NAME}' is stopped. Starting..."
-        docker start ${CONTAINER_NAME}
-    fi
-else
-    echo "Container '${CONTAINER_NAME}' is already running."
+# --- 1. Check if container is running ---
+if ! docker ps -q -f name=^/${CONTAINER_NAME}$ | grep -q .; then
+    echo "❌ Container '${CONTAINER_NAME}' is not running."
+    echo "Please start it with: docker compose up -d"
+    exit 1
 fi
 
-# --- 2. Wait for the DB to be ready ---
-echo "⏳ Waiting for the database to be ready at $DATABASE_URL..."
+echo "✅ Container '${CONTAINER_NAME}' is running."
 
-# psql can use PG... environment variables instead of a URL,
-# so we explicitly export PGPASSWORD to avoid a password prompt.
+# --- 2. Wait for PostgreSQL to be ready ---
+echo "⏳ Waiting for PostgreSQL to be ready..."
 export PGPASSWORD="${POSTGRES_PASSWORD}"
 
 COUNTER=0
-# We use `psql -c "\q"` as a health check.
-# It will return 0 (success) once the connection is established.
-until psql "$DATABASE_URL" -c "\q" >/dev/null 2>&1; do
+until docker exec ${CONTAINER_NAME} pg_isready -U ${POSTGRES_USER} >/dev/null 2>&1; do
     ((COUNTER++))
     if [ $COUNTER -gt 30 ]; then
-        echo "❌ Timeout: Database is not ready after 30 seconds."
+        echo "❌ Timeout: PostgreSQL is not ready after 30 seconds."
         exit 1
     fi
-    echo "Waiting... (attempt $COUNTER)"
     sleep 1
 done
 
-echo "✅ Database is ready."
+echo "✅ PostgreSQL is ready."
 
-# --- 3. Apply migrations ---
-echo "Applying migrations from $MIGRATION_FILE..."
+# --- 3. Check if database exists, create if not ---
+echo "🔍 Checking if database '${POSTGRES_DB}' exists..."
 
-# Your original command
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_FILE"
+DB_EXISTS=$(docker exec ${CONTAINER_NAME} psql -U ${POSTGRES_USER} -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${POSTGRES_DB}'")
 
-echo "🎉 Migrations successfully applied to $DATABASE_URL"
+if [ "$DB_EXISTS" != "1" ]; then
+    echo "📦 Database '${POSTGRES_DB}' does not exist. Creating..."
+    docker exec ${CONTAINER_NAME} psql -U ${POSTGRES_USER} -d postgres -c "CREATE DATABASE ${POSTGRES_DB};"
+    echo "✅ Database '${POSTGRES_DB}' created successfully."
+else
+    echo "✅ Database '${POSTGRES_DB}' already exists."
+fi
+
+# --- 4. Check if pgcrypto extension exists ---
+echo "🔍 Checking pgcrypto extension..."
+
+EXTENSION_EXISTS=$(docker exec ${CONTAINER_NAME} psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -tAc "SELECT 1 FROM pg_extension WHERE extname='pgcrypto'")
+
+if [ "$EXTENSION_EXISTS" != "1" ]; then
+    echo "📦 Installing pgcrypto extension..."
+    docker exec ${CONTAINER_NAME} psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+    echo "✅ pgcrypto extension installed."
+else
+    echo "✅ pgcrypto extension already exists."
+fi
+
+# --- 5. Check if migrations already applied ---
+echo "🔍 Checking if tables already exist..."
+
+TABLES_EXIST=$(docker exec ${CONTAINER_NAME} psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('positions', 'position_history')")
+
+if [ "$TABLES_EXIST" = "2" ]; then
+    echo "⚠️  Tables already exist. Skipping migration."
+    echo "If you want to reapply, drop the database first:"
+    echo "  docker exec ${CONTAINER_NAME} psql -U ${POSTGRES_USER} -d postgres -c 'DROP DATABASE ${POSTGRES_DB};'"
+else
+    echo "📝 Applying migrations from $MIGRATION_FILE..."
+
+    # Apply migrations using psql from host (if available) or via docker exec
+    if command -v psql &> /dev/null; then
+        psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_FILE"
+    else
+        docker exec -i ${CONTAINER_NAME} psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -v ON_ERROR_STOP=1 < "$MIGRATION_FILE"
+    fi
+
+    echo "✅ Migrations successfully applied."
+fi
+
+echo "🎉 Database setup complete!"
 
 # Unset the password from environment variables
 unset PGPASSWORD

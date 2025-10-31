@@ -1,0 +1,24 @@
+{
+  "name": "futures-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Event-driven NestJS microservices system for crypto futures positions processing",
+  "workspaces": [
+    "libs/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "smoke": "ts-node scripts/dev-smoke.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "dotenv": "^17.2.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
