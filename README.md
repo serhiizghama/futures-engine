@@ -37,6 +37,7 @@ Event-driven microservices system for crypto futures positions processing using 
 2. **Position Opening**: REST API → Kafka (`position.command.open`) → `position-processor` → PostgreSQL + Redis (triggers)
 3. **Trigger Detection**: Kafka ticks → `risk-engine` → Redis ZSET queries → Kafka (`position.command.trigger.*`)
 4. **Position Closure**: Trigger commands → `trigger-processor` → PostgreSQL (close + PnL) + Redis (cleanup)
+5. **Order Execution**: Kafka (`order.command.*`) → `order-executor` → Binance Trading API → Kafka (`order.event.*`)
 
 ### Technology Stack
 
@@ -187,7 +188,7 @@ Topics follow the pattern: `{domain}.{type}.{action}`
 }
 ```
 
-For detailed topic specifications, see [docs/kafka-topics.md](docs/kafka-topics.md).
+For detailed topic specifications
 
 ## Database Schema
 
