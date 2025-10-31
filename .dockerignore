@@ -1,17 +1,16 @@
-# Dependencies
+# Dependencies (exclude node_modules but keep package files)
 node_modules
 **/node_modules
 npm-debug.log
 yarn-error.log
-package-lock.json
 
-# Build output
+# Build output (will be rebuilt in Docker)
 dist
 **/dist
 build
 **/build
 
-# Environment
+# Environment files
 .env
 .env.local
 .env.*.local
@@ -31,23 +30,19 @@ Thumbs.db
 .git
 .gitignore
 
-# Docker
-Dockerfile*
+# Docker files (except Dockerfiles which are referenced directly)
 docker-compose*.yml
 .dockerignore
 
-# Docs
+# Documentation 
 docs
-*.md
-README.md
 
-# Tests
+# Tests (not needed for production builds)
 **/*.test.ts
 **/*.spec.ts
 test
 tests
 
-# Misc
+# Linting configs (not needed for runtime)
 .eslintrc*
 .prettierrc*
-tsconfig.json

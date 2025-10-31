@@ -11,7 +11,7 @@
 **/.env.test.local
 **/.env.production.local
 
-
+**/docs
 # Docker
 docker-compose.override.yml
 

@@ -81,12 +81,10 @@ services:
       retries: 5
 
   market-data-ingestor:
-    image: node:22-alpine
+    build:
+      context: .
+      dockerfile: apps/market-data-ingestor/Dockerfile
     container_name: futures-market-data-ingestor
-    working_dir: /usr/src/app
-    volumes:
-      - ./:/usr/src/app:ro
-    command: ["npm", "run", "start", "--workspace", "apps/market-data-ingestor"]
     environment:
       NODE_ENV: production
       KAFKA_BROKERS: kafka:9093
@@ -94,18 +92,19 @@ services:
       SYMBOLS: BTCUSDT
       PRICE_TTL_SECONDS: "60"
     depends_on:
-      - kafka
-      - redis
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - futures-network
+    restart: unless-stopped
 
   position-api:
-    image: node:22-alpine
+    build:
+      context: .
+      dockerfile: apps/position-api/Dockerfile
     container_name: futures-position-api
-    working_dir: /usr/src/app
-    volumes:
-      - ./:/usr/src/app
-    command: ["npm", "run", "start", "--workspace", "apps/position-api"]
     environment:
       NODE_ENV: production
       PORT: "3001"
@@ -128,6 +127,33 @@ services:
         condition: service_healthy
     networks:
       - futures-network
+    restart: unless-stopped
+
+  position-processor:
+    build:
+      context: .
+      dockerfile: apps/position-processor/Dockerfile
+    container_name: futures-position-processor
+    environment:
+      NODE_ENV: production
+      KAFKA_BROKERS: kafka:9093
+      REDIS_URL: redis://redis:6379
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: futures
+      PGPASSWORD: futures
+      PGDATABASE: futures
+      SERVICE_NAME: position-processor
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - futures-network
+    restart: unless-stopped
 
 volumes:
   redis-data:
