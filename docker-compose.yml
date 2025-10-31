@@ -99,6 +99,36 @@ services:
     networks:
       - futures-network
 
+  position-api:
+    image: node:22-alpine
+    container_name: futures-position-api
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+    command: ["npm", "run", "start", "--workspace", "apps/position-api"]
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      KAFKA_BROKERS: kafka:9093
+      REDIS_URL: redis://redis:6379
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: futures
+      PGPASSWORD: futures
+      PGDATABASE: futures
+      SERVICE_NAME: position-api
+    ports:
+      - "3001:3001"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - futures-network
+
 volumes:
   redis-data:
   postgres-data:
