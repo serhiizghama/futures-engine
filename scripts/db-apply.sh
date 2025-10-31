@@ -5,7 +5,7 @@ set -euo pipefail
 CONTAINER_NAME="futures-postgres"
 POSTGRES_USER="futures"
 POSTGRES_PASSWORD="futures"
-POSTGRES_DB="futures_engine"
+POSTGRES_DB="futures"
 DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}"
 POSTGRES_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/postgres"
 MIGRATION_FILE="$(dirname "$0")/../migrations/0001_init.sql"

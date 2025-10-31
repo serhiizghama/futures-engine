@@ -24,7 +24,7 @@ async function main() {
   // ALWAYS use STANDARD ports - read from .env or use standard defaults
   const KAFKA_BROKERS = process.env.KAFKA_BROKERS?.split(',') || ['localhost:9092'];
   const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-  const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://futures:futures@localhost:5432/futures_engine';
+  const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://futures:futures@localhost:5432/futures';
 
   console.log('Configuration:');
   console.log(`  Kafka: ${KAFKA_BROKERS.join(', ')}`);
