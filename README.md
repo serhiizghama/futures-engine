@@ -288,7 +288,7 @@ For a given tick price **P**:
 
 ### Prerequisites
 
-- **Node.js** >= 18.0.0
+- **Node.js** >= 22.0.0
 - **Docker** and **Docker Compose**
 - Free ports: `5432` (PostgreSQL), `6379` (Redis), `9092` (Kafka), `2181` (Zookeeper), `3001` (API)
 
