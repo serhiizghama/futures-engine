@@ -29,7 +29,7 @@ Event-driven microservices system for crypto futures positions processing using 
 
 ### System Architecture Diagram
 
-![Архитектурная схема торговой системы](./images/system-architecture-diagram.png)
+![Архитектурная схема торговой системы](./images/system-architecture-diagram-v2.png)
 
 ### Data Flow
 
