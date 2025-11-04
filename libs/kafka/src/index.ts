@@ -108,8 +108,12 @@ export class KafkaConsumer {
     console.log(`[KafkaConsumer] Subscribed to topic: ${topic}`);
 
     await this.consumer.run({
-      autoCommit: true,
-      eachMessage: async ({ topic, partition, message }) => {
+      // CRITICAL: Use manual commit to ensure at-least-once semantics
+      // With autoCommit: true, offsets are committed on a timer (default 5s),
+      // which can lead to data loss if handler fails after autoCommit interval.
+      // Manual commit ensures we only commit after successful handler execution.
+      autoCommit: false,
+      eachMessage: async ({ topic, partition, message, heartbeat }) => {
         try {
           const key = message.key?.toString() || '';
           const rawValue = message.value?.toString() || '{}';
@@ -122,7 +126,22 @@ export class KafkaConsumer {
             }
           }
 
+          // Execute handler - if it throws, we don't commit
           await handler(key, value, headers);
+
+          // Only commit after successful handler execution
+          // This ensures at-least-once semantics: if handler fails,
+          // message will be redelivered on next poll
+          await this.consumer.commitOffsets([
+            {
+              topic,
+              partition,
+              offset: (BigInt(message.offset) + BigInt(1)).toString(),
+            },
+          ]);
+
+          // Send heartbeat to prevent rebalancing during long processing
+          await heartbeat();
         } catch (error) {
           console.error('[KafkaConsumer] Handler error:', {
             topic,
@@ -130,7 +149,8 @@ export class KafkaConsumer {
             offset: message.offset,
             error,
           });
-          // Error logged, message will be retried by consumer retry config
+          // DO NOT commit on error - message will be redelivered
+          // Re-throw to stop processing and trigger consumer pause/retry
           throw error;
         }
       },

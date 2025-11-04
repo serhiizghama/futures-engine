@@ -155,6 +155,26 @@ services:
       - futures-network
     restart: unless-stopped
 
+  risk-engine:
+    build:
+      context: .
+      dockerfile: apps/risk-engine/Dockerfile
+    container_name: futures-risk-engine
+    environment:
+      NODE_ENV: production
+      KAFKA_BROKERS: kafka:9093
+      REDIS_URL: redis://redis:6379
+      SERVICE_NAME: risk-engine
+      DEDUP_TTL_SECONDS: "300"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - futures-network
+    restart: unless-stopped
+
 volumes:
   redis-data:
   postgres-data:

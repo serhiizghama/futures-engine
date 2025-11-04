@@ -41,6 +41,14 @@ export class RedisClient {
     }
   }
 
+  async setIfNotExists(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    // SET key value EX seconds NX
+    // Use ioredis command builder to call Redis SET with multiple options
+    // Returns 'OK' if key was set, null if key already existed
+    const result = await this.client.call('SET', key, value, 'EX', ttlSeconds, 'NX') as string | null;
+    return result === 'OK';
+  }
+
   async mget(keys: string[]): Promise<(string | null)[]> {
     if (keys.length === 0) return [];
     return await this.client.mget(...keys);
@@ -60,6 +68,56 @@ export class RedisClient {
 
   async zrevrangebyscore(key: string, max: number, min: number): Promise<string[]> {
     return await this.client.zrevrangebyscore(key, max, min);
+  }
+
+  async sadd(key: string, member: string): Promise<void> {
+    await this.client.sadd(key, member);
+  }
+
+  async sismember(key: string, member: string): Promise<boolean> {
+    const result = await this.client.sismember(key, member);
+    return result === 1;
+  }
+
+  async expire(key: string, seconds: number): Promise<void> {
+    await this.client.expire(key, seconds);
+  }
+
+  async pipelineZRangeQueries(queries: Array<{
+    key: string;
+    method: 'zrangebyscore' | 'zrevrangebyscore';
+    min: number;
+    max: number;
+  }>): Promise<string[][]> {
+    const pipeline = this.client.pipeline();
+
+    queries.forEach(({ key, method, min, max }) => {
+      if (method === 'zrangebyscore') {
+        pipeline.zrangebyscore(key, min, max);
+      } else {
+        // zrevrangebyscore takes (key, max, min) - note reversed order
+        pipeline.zrevrangebyscore(key, max, min);
+      }
+    });
+
+    const results = await pipeline.exec();
+
+    if (!results) {
+      throw new Error('Pipeline execution failed');
+    }
+
+    // results is array of [error, result] tuples
+    return results.map(([err, res]) => {
+      if (err) throw err;
+      return res as string[];
+    });
+  }
+
+  /**
+   * Get the underlying ioredis client for advanced operations
+   */
+  getClient(): Redis {
+    return this.client;
   }
 }
 

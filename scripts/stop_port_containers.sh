@@ -9,7 +9,7 @@ set -euo pipefail
 REMOVE=${REMOVE:-false}
 
 # List of host ports to check
-PORTS=(9092 9093 2181 6379 5432)
+PORTS=(9092 9093 2181 6379 5432 3000)
 
 # Function: log with timestamp
 log() {

@@ -1,18 +1,3 @@
-# risk-engine (app)
+# Risk Engine Service
 
-Scaffold for consuming ticks, querying Redis triggers, and emitting trigger commands.
-
-## Config
-- KAFKA_BROKERS
-- REDIS_URL
-
-## Responsibilities
-- Consume `market.price.tick`
-- Query Redis ZSETs per inequalities
-- Emit `position.command.trigger.sl|tp|liq`
-
-## Run Steps (pseudo)
-1. Connect Kafka consumer (group per deployment)
-2. On tick(symbol, price): run 6 Redis range queries
-3. For each positionId matched: guard against duplicates; emit trigger command
-4. Metrics and backpressure controls
+A high-performance NestJS microservice that monitors market price ticks and detects when positions should be triggered (stop-loss, take-profit, or liquidation). This service is critical for the hot path and is optimized for sub-10ms latency per tick.
